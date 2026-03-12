@@ -1,0 +1,168 @@
+name: mealie
+base: core24
+adopt-info: backend
+summary: Self-hosted recipe manager and meal planner (v3.11.0)
+description: |
+  Mealie is a self-hosted recipe manager and meal planner.
+  This snap includes the FastAPI backend and an Nginx web server.
+
+grade: stable
+confinement: strict
+
+layout:
+  /var/lib/nginx:
+    bind: $SNAP_DATA/var/lib/nginx
+  /var/log/nginx:
+    bind: $SNAP_DATA/var/log/nginx
+  /etc/nginx/mime.types:
+    bind-file: $SNAP/etc/nginx/mime.types
+
+apps:
+  api:
+    command: bin/run-backend.sh
+    daemon: simple
+    install-mode: enable
+    plugs: [network, network-bind]
+    environment:
+      DATA_DIR: $SNAP_COMMON/data
+      PRODUCTION: "true"
+      API_PORT: "9000"
+
+  web:
+    command: bin/run-nginx.sh
+    daemon: simple
+    install-mode: enable
+    after: [api]
+    plugs: [network, network-bind]
+    environment:
+      NGINX_PORT: "8080"
+
+parts:
+  frontend:
+    plugin: nil
+    source: https://github.com/mealie-recipes/mealie.git
+    source-subdir: frontend
+    build-packages:
+      - curl
+      - gcc
+      - g++
+      - make
+    override-build: |
+      curl -fsSL https://deb.nodesource.com/setup_20.x | bash -
+      apt-get install -y nodejs
+      npm install -g yarn
+      
+      cd frontend
+      rm -rf .nuxt .output node_modules package-lock.json yarn.lock
+      npm install --save-dev @oxc-transform/binding-linux-x64-gnu --legacy-peer-deps
+      yarn install --frozen-lockfile || yarn install
+      npx nuxi cleanup
+      NODE_OPTIONS="--max-old-space-size=4096" yarn generate
+      
+      mkdir -p $CRAFT_PART_INSTALL/share/mealie/frontend
+      cp -r dist/* $CRAFT_PART_INSTALL/share/mealie/frontend/
+
+  backend:
+    plugin: python
+    source: https://github.com/mealie-recipes/mealie.git
+    override-pull: |
+      craftctl default
+      VERSION=$(git describe --tags --abbrev=0 2>/dev/null || echo "v3.11.0")
+      craftctl set version="$VERSION"
+    python-packages:
+      - uvicorn
+      - gunicorn
+    stage-packages:
+      - libpq-dev
+      - libsqlite3-dev
+      - libldap2
+      - libsasl2-2
+    build-packages:
+      - libldap2-dev
+      - libsasl2-dev
+      - libssl-dev
+      - python3-dev
+      - gcc
+    override-build: |
+      # 1. Install local dependencies
+      if [ -f "pyproject.toml" ]; then
+        pip install --break-system-packages .
+      elif [ -f "requirements.txt" ]; then
+        pip install --break-system-packages -r requirements.txt
+      fi
+      
+      # 2. Build the part
+      snapcraftctl build
+      
+      # 3. SMARTER BINARY RESCUE
+      mkdir -p $CRAFT_PART_INSTALL/bin
+      # Find gunicorn anywhere in the install directory
+      GUNICORN_PATH=$(find $CRAFT_PART_INSTALL -name "gunicorn" -type f | head -n 1)
+      
+      # Only copy if we found it AND it's not already in the final bin folder
+      if [ -n "$GUNICORN_PATH" ] && [ "$GUNICORN_PATH" != "$CRAFT_PART_INSTALL/bin/gunicorn" ]; then
+        cp "$GUNICORN_PATH" $CRAFT_PART_INSTALL/bin/
+        chmod +x $CRAFT_PART_INSTALL/bin/gunicorn
+      fi
+
+  nginx:
+    plugin: nil
+    stage-packages:
+      - nginx-light
+    stage:
+      - usr/sbin/nginx       # Force-include the binary
+      - usr/lib/nginx/* # Include necessary modules
+      - etc/nginx/* # Include the etc folder...
+      - -etc/nginx/nginx.conf # ...but specifically EXCLUDE the default config
+    override-prime: |
+      rm -rf etc/nginx/sites-enabled/default
+
+  config:
+    plugin: dump
+    source: .
+    override-build: |
+      mkdir -p $CRAFT_PART_INSTALL/etc/nginx
+      mkdir -p $CRAFT_PART_INSTALL/bin
+
+      # Custom Nginx Config
+      cat <<EOF > $CRAFT_PART_INSTALL/etc/nginx/nginx.conf
+      error_log /var/log/nginx/error.log;
+      pid /var/lib/nginx/nginx.pid;
+      events { worker_connections 1024; }
+      http {
+          include /etc/nginx/mime.types;
+          client_body_temp_path /var/lib/nginx/body;
+          proxy_temp_path /var/lib/nginx/proxy;
+          server {
+              listen 8080;
+              location / {
+                  root \$SNAP/share/mealie/frontend;
+                  index index.html;
+                  try_files \$uri \$uri/ /index.html;
+              }
+              location /api {
+                  proxy_pass http://127.0.0.1:9000;
+                  proxy_set_header Host \$host;
+              }
+          }
+      }
+      EOF
+
+      # Launch Scripts
+      cat <<EOF > $CRAFT_PART_INSTALL/bin/run-backend.sh
+      #!/bin/bash
+      mkdir -p \$DATA_DIR
+      export PYTHONPATH=\$SNAP/lib/python3.12/site-packages:\$PYTHONPATH
+      exec \$SNAP/bin/gunicorn mealie.app:app \
+        --bind 127.0.0.1:\$API_PORT \
+        --workers 2 \
+        --worker-class uvicorn.workers.UvicornWorker
+      EOF
+
+      cat <<EOF > $CRAFT_PART_INSTALL/bin/run-nginx.sh
+      #!/bin/bash
+      mkdir -p \$SNAP_DATA/var/lib/nginx/body
+      mkdir -p \$SNAP_DATA/var/log/nginx
+      exec \$SNAP/usr/sbin/nginx -c \$SNAP/etc/nginx/nginx.conf -g "daemon off;"
+      EOF
+      chmod +x $CRAFT_PART_INSTALL/bin/*.sh
