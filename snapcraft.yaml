@@ -11,7 +11,7 @@ adopt-info: backend
 summary: Self-hosted recipe manager and meal planner
 description: |
   Mealie is a self-hosted recipe manager and meal planner.
-  This snap includes the FastAPI backend and an Nginx web server.
+  This snap runs on port 9000.
 
 grade: stable
 confinement: strict
