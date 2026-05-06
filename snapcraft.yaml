@@ -1,7 +1,14 @@
 name: mealie
+title: Mealie
+license: GPL-3.0
+website: https://mealie.io/
+donation: https://github.com/sponsors/danbishop
+source-code: https://github.com/mealie-recipes/mealie
+issues: https://github.com/danbishop/mealie/issues
+contact: d@nbishop.uk
 base: core24
 adopt-info: backend
-summary: Self-hosted recipe manager and meal planner (v3.11.0)
+summary: Self-hosted recipe manager and meal planner
 description: |
   Mealie is a self-hosted recipe manager and meal planner.
   This snap includes the FastAPI backend and an Nginx web server.
@@ -9,17 +16,9 @@ description: |
 grade: stable
 confinement: strict
 
-layout:
-  /var/lib/nginx:
-    bind: $SNAP_DATA/var/lib/nginx
-  /var/log/nginx:
-    bind: $SNAP_DATA/var/log/nginx
-  /etc/nginx/mime.types:
-    bind-file: $SNAP/etc/nginx/mime.types
-
 apps:
-  api:
-    command: bin/run-backend.sh
+  mealie:
+    command: bin/run.sh
     daemon: simple
     install-mode: enable
     plugs: [network, network-bind]
@@ -28,46 +27,42 @@ apps:
       PRODUCTION: "true"
       API_PORT: "9000"
 
-  web:
-    command: bin/run-nginx.sh
-    daemon: simple
-    install-mode: enable
-    after: [api]
-    plugs: [network, network-bind]
-    environment:
-      NGINX_PORT: "8080"
-
 parts:
   frontend:
-    plugin: nil
+    plugin: npm
     source: https://github.com/mealie-recipes/mealie.git
     source-subdir: frontend
+    build-snaps:
+      # use Node.js Snap during the build-time only
+      - node/24/stable
     build-packages:
       - curl
       - gcc
       - g++
       - make
     override-build: |
-      curl -fsSL https://deb.nodesource.com/setup_20.x | bash -
-      apt-get install -y nodejs
-      npm install -g yarn
-      
-      cd frontend
-      rm -rf .nuxt .output node_modules package-lock.json yarn.lock
-      npm install --save-dev @oxc-transform/binding-linux-x64-gnu --legacy-peer-deps
-      yarn install --frozen-lockfile || yarn install
-      npx nuxi cleanup
-      NODE_OPTIONS="--max-old-space-size=4096" yarn generate
-      
-      mkdir -p $CRAFT_PART_INSTALL/share/mealie/frontend
-      cp -r dist/* $CRAFT_PART_INSTALL/share/mealie/frontend/
+      # Set proxies so that launchpad builds work
+      if [ -n "${http_proxy:-}" ]; then
+        export YARN_HTTP_PROXY="${http_proxy:-}"
+        export YARN_HTTPS_PROXY="${http_proxy:-}"
+      fi
+      cd $CRAFT_PART_SRC/frontend
+      yarn install --prefer-offline --frozen-lockfile --non-interactive --production=false
+      yarn generate
+
+      # Move compiled frontend to prime
+      mkdir -p "${CRAFT_PRIME}"/frontend
+      cp -a ${CRAFT_PART_SRC}/frontend/dist/* ${SNAPCRAFT_PRIME}/frontend
+      craftctl default
 
   backend:
     plugin: python
+    after:
+      - frontend
     source: https://github.com/mealie-recipes/mealie.git
     override-pull: |
       craftctl default
-      VERSION=$(git describe --tags --abbrev=0 2>/dev/null || echo "v3.11.0")
+      VERSION=$(git describe --tags --abbrev=0 2>/dev/null)
       craftctl set version="$VERSION"
     python-packages:
       - uvicorn
@@ -85,15 +80,27 @@ parts:
       - gcc
     override-build: |
       # 1. Install local dependencies
-      if [ -f "pyproject.toml" ]; then
-        pip install --break-system-packages .
-      elif [ -f "requirements.txt" ]; then
-        pip install --break-system-packages -r requirements.txt
-      fi
+      pip install --break-system-packages .
+
+      # Install frontend
+      cp -a ${SNAPCRAFT_PRIME}/frontend ${CRAFT_PART_SRC}/mealie/frontend
       
       # 2. Build the part
+      pip install --break-system-packages uv
+      uv build --out-dir $CRAFT_PART_INSTALL/dist
+      uv export --no-editable --no-emit-project --extra pgsql --format requirements-txt --output-file $CRAFT_PART_INSTALL/dist/requirements.txt \
+      && MEALIE_VERSION=$(python -c "import tomllib; print(tomllib.load(open('pyproject.toml', 'rb'))['project']['version'])") \
+      && echo "mealie[pgsql]==${MEALIE_VERSION} \\" >> $CRAFT_PART_INSTALL/dist/requirements.txt \
+      && pip hash $CRAFT_PART_INSTALL/dist/mealie-${MEALIE_VERSION}-py3-none-any.whl | tail -n1 | tr -d '\n' >> $CRAFT_PART_INSTALL/dist/requirements.txt \
+      && echo " \\" >> dist/requirements.txt \
+      && pip hash $CRAFT_PART_INSTALL/dist/mealie-${MEALIE_VERSION}.tar.gz | tail -n1 >> $CRAFT_PART_INSTALL/dist/requirements.txt
       snapcraftctl build
-      
+
+      # install nltk data for the ingredient parser
+      mkdir -p $CRAFT_PART_INSTALL/nltk_data/
+      python -m nltk.downloader -d $CRAFT_PART_INSTALL/nltk_data/ averaged_perceptron_tagger_eng
+      rm -rf $CRAFT_PART_INSTALL/nltk_data/
+
       # 3. SMARTER BINARY RESCUE
       mkdir -p $CRAFT_PART_INSTALL/bin
       # Find gunicorn anywhere in the install directory
@@ -105,64 +112,16 @@ parts:
         chmod +x $CRAFT_PART_INSTALL/bin/gunicorn
       fi
 
-  nginx:
-    plugin: nil
-    stage-packages:
-      - nginx-light
-    stage:
-      - usr/sbin/nginx       # Force-include the binary
-      - usr/lib/nginx/* # Include necessary modules
-      - etc/nginx/* # Include the etc folder...
-      - -etc/nginx/nginx.conf # ...but specifically EXCLUDE the default config
-    override-prime: |
-      rm -rf etc/nginx/sites-enabled/default
-
   config:
     plugin: dump
     source: .
     override-build: |
-      mkdir -p $CRAFT_PART_INSTALL/etc/nginx
       mkdir -p $CRAFT_PART_INSTALL/bin
 
-      # Custom Nginx Config
-      cat <<EOF > $CRAFT_PART_INSTALL/etc/nginx/nginx.conf
-      error_log /var/log/nginx/error.log;
-      pid /var/lib/nginx/nginx.pid;
-      events { worker_connections 1024; }
-      http {
-          include /etc/nginx/mime.types;
-          client_body_temp_path /var/lib/nginx/body;
-          proxy_temp_path /var/lib/nginx/proxy;
-          server {
-              listen 8080;
-              location / {
-                  root \$SNAP/share/mealie/frontend;
-                  index index.html;
-                  try_files \$uri \$uri/ /index.html;
-              }
-              location /api {
-                  proxy_pass http://127.0.0.1:9000;
-                  proxy_set_header Host \$host;
-              }
-          }
-      }
+      # Launch Script
+      cat <<EOF > $CRAFT_PART_INSTALL/bin/run.sh
+      #!/bin/bash
+      exec mealie
       EOF
 
-      # Launch Scripts
-      cat <<EOF > $CRAFT_PART_INSTALL/bin/run-backend.sh
-      #!/bin/bash
-      mkdir -p \$DATA_DIR
-      export PYTHONPATH=\$SNAP/lib/python3.12/site-packages:\$PYTHONPATH
-      exec \$SNAP/bin/gunicorn mealie.app:app \
-        --bind 127.0.0.1:\$API_PORT \
-        --workers 2 \
-        --worker-class uvicorn.workers.UvicornWorker
-      EOF
-
-      cat <<EOF > $CRAFT_PART_INSTALL/bin/run-nginx.sh
-      #!/bin/bash
-      mkdir -p \$SNAP_DATA/var/lib/nginx/body
-      mkdir -p \$SNAP_DATA/var/log/nginx
-      exec \$SNAP/usr/sbin/nginx -c \$SNAP/etc/nginx/nginx.conf -g "daemon off;"
-      EOF
       chmod +x $CRAFT_PART_INSTALL/bin/*.sh
