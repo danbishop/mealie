@@ -11,7 +11,7 @@ adopt-info: backend
 summary: Self-hosted recipe manager and meal planner
 description: |
   Mealie is a self-hosted recipe manager and meal planner.
-  This snap runs on port 9000.
+  This snap runs on port 9925. This isn't currently configurable.
 
 grade: stable
 confinement: strict
@@ -25,7 +25,7 @@ apps:
     environment:
       DATA_DIR: $SNAP_COMMON/data
       PRODUCTION: "true"
-      API_PORT: "9000"
+      API_PORT: "9925"
 
 parts:
   frontend:
