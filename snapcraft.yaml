@@ -125,3 +125,7 @@ parts:
       EOF
 
       chmod +x $CRAFT_PART_INSTALL/bin/*.sh
+
+lint:
+  ignore:
+    - library
