@@ -78,6 +78,7 @@ parts:
       - libssl-dev
       - python3-dev
       - gcc
+      - python3-pip
     override-build: |
       # 1. Install local dependencies
       pip install --break-system-packages .
