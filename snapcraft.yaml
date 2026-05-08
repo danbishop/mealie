@@ -7,6 +7,13 @@ source-code: https://github.com/mealie-recipes/mealie
 issues: https://github.com/danbishop/mealie/issues
 contact: d@nbishop.uk
 base: core24
+platforms:
+  amd64:
+    build-on: [amd64]
+    build-for: [amd64]
+  arm64:
+    build-on: [arm64]
+    build-for: [arm64]
 adopt-info: backend
 summary: Self-hosted recipe manager and meal planner
 description: |
