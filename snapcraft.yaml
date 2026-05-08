@@ -25,6 +25,7 @@ apps:
     environment:
       DATA_DIR: $SNAP_COMMON/data
       PRODUCTION: "true"
+      TESTING: "false"
       API_PORT: "9925"
 
 parts:
@@ -32,6 +33,10 @@ parts:
     plugin: npm
     source: https://github.com/mealie-recipes/mealie.git
     source-subdir: frontend
+    override-pull: |
+      craftctl default
+      VERSION=$(git describe --tags --abbrev=0 2>/dev/null)
+      git checkout $VERSION
     build-snaps:
       # use Node.js Snap during the build-time only
       - node/24/stable
@@ -40,14 +45,6 @@ parts:
       - gcc
       - g++
       - make
-    override-pull: |
-      craftctl default
-
-      # Find the latest tag on the current branch
-      LATEST_TAG=$(git describe --tags --abbrev=0)
-      
-      # Switch the source code to that tag
-      git checkout $LATEST_TAG
     override-build: |
       # Set proxies so that launchpad builds work
       if [ -n "${http_proxy:-}" ]; then
@@ -70,12 +67,9 @@ parts:
     source: https://github.com/mealie-recipes/mealie.git
     override-pull: |
       craftctl default
-      # Find the latest tag on the current branch
-      LATEST_TAG=$(git describe --tags --abbrev=0)
-      
-      # Switch the source code to that tag
-      git checkout $LATEST_TAG
-      craftctl set version="$LATEST_TAG"
+      VERSION=$(git describe --tags --abbrev=0 2>/dev/null)
+      git checkout $VERSION
+      craftctl set version="$VERSION"
     python-packages:
       - uvicorn
       - gunicorn
@@ -96,7 +90,7 @@ parts:
       pip install --break-system-packages .
 
       # Install frontend
-      cp -a ${SNAPCRAFT_PRIME}/frontend ${CRAFT_PART_SRC}/mealie/frontend
+      cp -a ${SNAPCRAFT_PRIME}/frontend ${CRAFT_PART_SRC}/
       
       # 2. Build the part
       pip install --break-system-packages uv
