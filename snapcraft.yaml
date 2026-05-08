@@ -11,7 +11,13 @@ adopt-info: backend
 summary: Self-hosted recipe manager and meal planner
 description: |
   Mealie is a self-hosted recipe manager and meal planner.
-  This snap runs on port 9925. This isn't currently configurable.
+  This snap runs on port 9925 by default. This can be changed with:
+
+  `sudo snap set mealie port=9925`
+
+  You can also configure the base URL with:
+
+  `sudo snap set mealie base-url=http://my-proxy-address.domain.tld`
 
 grade: stable
 confinement: strict
@@ -26,7 +32,7 @@ apps:
       DATA_DIR: $SNAP_COMMON/data
       PRODUCTION: "true"
       TESTING: "false"
-      API_PORT: "9925"
+      # API_PORT: "9925"
 
 parts:
   frontend:
@@ -55,9 +61,8 @@ parts:
       yarn install --prefer-offline --frozen-lockfile --non-interactive --production=false
       yarn generate
 
-      # Move compiled frontend to prime
-      mkdir -p "${CRAFT_PRIME}"/frontend
-      cp -a ${CRAFT_PART_SRC}/frontend/dist/* ${SNAPCRAFT_PRIME}/frontend
+      # Copy compiled frontend to prime
+      cp -a ${CRAFT_PART_SRC}/frontend/dist/ ${SNAPCRAFT_PRIME}/frontend
       craftctl default
 
   backend:
@@ -85,28 +90,30 @@ parts:
       - python3-dev
       - gcc
       - python3-pip
+      - python3-venv
     override-build: |
       # 1. Install local dependencies
       pip install --break-system-packages .
 
       # Install frontend
       cp -a ${SNAPCRAFT_PRIME}/frontend ${CRAFT_PART_SRC}/
+      cp -a ${SNAPCRAFT_PRIME}/frontend ${CRAFT_PART_SRC}/mealie/
       
       # 2. Build the part
       pip install --break-system-packages uv
-      uv build --out-dir $CRAFT_PART_INSTALL/dist
-      uv export --no-editable --no-emit-project --extra pgsql --format requirements-txt --output-file $CRAFT_PART_INSTALL/dist/requirements.txt \
+      uv build --out-dir $CRAFT_PART_INSTALL/
+      uv export --no-editable --no-emit-project --extra pgsql --format requirements-txt --output-file $CRAFT_PART_INSTALL/requirements.txt \
       && MEALIE_VERSION=$(python -c "import tomllib; print(tomllib.load(open('pyproject.toml', 'rb'))['project']['version'])") \
-      && echo "mealie[pgsql]==${MEALIE_VERSION} \\" >> $CRAFT_PART_INSTALL/dist/requirements.txt \
-      && pip hash $CRAFT_PART_INSTALL/dist/mealie-${MEALIE_VERSION}-py3-none-any.whl | tail -n1 | tr -d '\n' >> $CRAFT_PART_INSTALL/dist/requirements.txt \
-      && echo " \\" >> dist/requirements.txt \
-      && pip hash $CRAFT_PART_INSTALL/dist/mealie-${MEALIE_VERSION}.tar.gz | tail -n1 >> $CRAFT_PART_INSTALL/dist/requirements.txt
-      snapcraftctl build
+      && echo "mealie[pgsql]==${MEALIE_VERSION} \\" >> $CRAFT_PART_INSTALL/requirements.txt \
+      && pip hash $CRAFT_PART_INSTALL/mealie-${MEALIE_VERSION}-py3-none-any.whl | tail -n1 | tr -d '\n' >> $CRAFT_PART_INSTALL/requirements.txt \
+      && echo " \\" >> requirements.txt \
+      && pip hash $CRAFT_PART_INSTALL/mealie-${MEALIE_VERSION}.tar.gz | tail -n1 >> $CRAFT_PART_INSTALL/requirements.txt
+      craftctl default
+
 
       # install nltk data for the ingredient parser
       mkdir -p $CRAFT_PART_INSTALL/nltk_data/
       python -m nltk.downloader -d $CRAFT_PART_INSTALL/nltk_data/ averaged_perceptron_tagger_eng
-      rm -rf $CRAFT_PART_INSTALL/nltk_data/
 
       # 3. SMARTER BINARY RESCUE
       mkdir -p $CRAFT_PART_INSTALL/bin
@@ -128,6 +135,10 @@ parts:
       # Launch Script
       cat <<EOF > $CRAFT_PART_INSTALL/bin/run.sh
       #!/bin/bash
+      # Source the file created by the configure hook if it exists
+      if [ -f "\$SNAP_COMMON/config.env" ]; then
+        . "\$SNAP_COMMON/config.env"
+      fi
       exec mealie
       EOF
 

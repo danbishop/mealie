@@ -1,0 +1,14 @@
+#!/bin/sh -e
+
+# Set default port
+if [ -z "$(snapctl get port)" ]; then
+  snapctl set port="9925"
+fi
+
+# Get values from the snap configuration
+PORT=$(snapctl get port)
+BASE_URL=$(snapctl get base-url)
+
+# Save to SNAP_COMMON
+echo "export API_PORT=\"$PORT\"" > "$SNAP_COMMON/config.env"
+echo "export BASE_URL=\"$BASE_URL\"" >> "$SNAP_COMMON/config.env"
