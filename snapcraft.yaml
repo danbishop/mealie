@@ -40,6 +40,14 @@ parts:
       - gcc
       - g++
       - make
+    override-pull: |
+      craftctl default
+
+      # Find the latest tag on the current branch
+      LATEST_TAG=$(git describe --tags --abbrev=0)
+      
+      # Switch the source code to that tag
+      git checkout $LATEST_TAG
     override-build: |
       # Set proxies so that launchpad builds work
       if [ -n "${http_proxy:-}" ]; then
@@ -62,8 +70,12 @@ parts:
     source: https://github.com/mealie-recipes/mealie.git
     override-pull: |
       craftctl default
-      VERSION=$(git describe --tags --abbrev=0 2>/dev/null)
-      craftctl set version="$VERSION"
+      # Find the latest tag on the current branch
+      LATEST_TAG=$(git describe --tags --abbrev=0)
+      
+      # Switch the source code to that tag
+      git checkout $LATEST_TAG
+      craftctl set version="$LATEST_TAG"
     python-packages:
       - uvicorn
       - gunicorn
