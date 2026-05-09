@@ -9,11 +9,7 @@ contact: d@nbishop.uk
 base: core24
 platforms:
   amd64:
-    build-on: [amd64]
-    build-for: [amd64]
   arm64:
-    build-on: [arm64]
-    build-for: [arm64]
 adopt-info: backend
 summary: Self-hosted recipe manager and meal planner
 description: |
@@ -94,6 +90,7 @@ parts:
       - libldap2-dev
       - libsasl2-dev
       - libssl-dev
+      - python3
       - python3-dev
       - gcc
       - python3-pip
@@ -106,13 +103,12 @@ parts:
       pip install --break-system-packages uv
       uv build --out-dir $CRAFT_PART_INSTALL/
       uv export --no-editable --no-emit-project --extra pgsql --format requirements-txt --output-file $CRAFT_PART_INSTALL/requirements.txt \
-      && MEALIE_VERSION=$(python -c "import tomllib; print(tomllib.load(open('pyproject.toml', 'rb'))['project']['version'])") \
+      && MEALIE_VERSION=$(python3 -c "import tomllib; print(tomllib.load(open('pyproject.toml', 'rb'))['project']['version'])") \
       && echo "mealie[pgsql]==${MEALIE_VERSION} \\" >> $CRAFT_PART_INSTALL/requirements.txt \
       && pip hash $CRAFT_PART_INSTALL/mealie-${MEALIE_VERSION}-py3-none-any.whl | tail -n1 | tr -d '\n' >> $CRAFT_PART_INSTALL/requirements.txt \
       && echo " \\" >> requirements.txt \
       && pip hash $CRAFT_PART_INSTALL/mealie-${MEALIE_VERSION}.tar.gz | tail -n1 >> $CRAFT_PART_INSTALL/requirements.txt
       craftctl default
-
 
       # install nltk data for the ingredient parser
       mkdir -p $CRAFT_PART_INSTALL/nltk_data/
