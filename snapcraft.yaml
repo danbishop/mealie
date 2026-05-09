@@ -37,9 +37,9 @@ apps:
     plugs: [network, network-bind]
     environment:
       DATA_DIR: $SNAP_COMMON/data
+      STATIC_FILES: "$SNAP/frontend"
       PRODUCTION: "true"
       TESTING: "false"
-      # API_PORT: "9925"
 
 parts:
   frontend:
@@ -98,15 +98,11 @@ parts:
       - gcc
       - python3-pip
       - python3-venv
-    override-build: |
-      # 1. Install local dependencies
+    override-build: |      
+      # Install local dependencies
       pip install --break-system-packages .
-
-      # Install frontend
-      cp -a ${SNAPCRAFT_PRIME}/frontend ${CRAFT_PART_SRC}/
-      cp -a ${SNAPCRAFT_PRIME}/frontend ${CRAFT_PART_SRC}/mealie/
       
-      # 2. Build the part
+      # Build the part
       pip install --break-system-packages uv
       uv build --out-dir $CRAFT_PART_INSTALL/
       uv export --no-editable --no-emit-project --extra pgsql --format requirements-txt --output-file $CRAFT_PART_INSTALL/requirements.txt \
@@ -121,17 +117,6 @@ parts:
       # install nltk data for the ingredient parser
       mkdir -p $CRAFT_PART_INSTALL/nltk_data/
       python -m nltk.downloader -d $CRAFT_PART_INSTALL/nltk_data/ averaged_perceptron_tagger_eng
-
-      # 3. SMARTER BINARY RESCUE
-      mkdir -p $CRAFT_PART_INSTALL/bin
-      # Find gunicorn anywhere in the install directory
-      GUNICORN_PATH=$(find $CRAFT_PART_INSTALL -name "gunicorn" -type f | head -n 1)
-      
-      # Only copy if we found it AND it's not already in the final bin folder
-      if [ -n "$GUNICORN_PATH" ] && [ "$GUNICORN_PATH" != "$CRAFT_PART_INSTALL/bin/gunicorn" ]; then
-        cp "$GUNICORN_PATH" $CRAFT_PART_INSTALL/bin/
-        chmod +x $CRAFT_PART_INSTALL/bin/gunicorn
-      fi
 
   config:
     plugin: dump

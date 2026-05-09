@@ -1,0 +1,6 @@
+#!/bin/sh -e
+
+snapctl set port=9925
+# Save to SNAP_COMMON
+echo "export API_PORT=\"$PORT\"" > "$SNAP_COMMON/config.env"
+echo "Default configuration has been run."
