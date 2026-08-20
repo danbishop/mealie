@@ -6,7 +6,7 @@ donation: https://github.com/sponsors/danbishop
 source-code: https://github.com/mealie-recipes/mealie
 issues: https://github.com/danbishop/mealie/issues
 contact: d@nbishop.uk
-base: core24
+base: core26
 platforms:
   amd64:
   arm64:
@@ -48,7 +48,7 @@ parts:
       git checkout $VERSION
     build-snaps:
       # use Node.js Snap during the build-time only
-      - node/24/stable
+      - node/26/stable
     build-packages:
       - curl
       - gcc
@@ -95,7 +95,8 @@ parts:
       - gcc
       - python3-pip
       - python3-venv
-    override-build: |      
+    override-build: |
+      NLTK_ALLOW_PROXIED_URLOPEN=1      
       # Install local dependencies
       pip install --break-system-packages .
       
