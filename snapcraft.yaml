@@ -6,7 +6,7 @@ donation: https://github.com/sponsors/danbishop
 source-code: https://github.com/mealie-recipes/mealie
 issues: https://github.com/danbishop/mealie/issues
 contact: d@nbishop.uk
-base: core26
+base: core24
 platforms:
   amd64:
   arm64:
@@ -61,6 +61,7 @@ parts:
         export YARN_HTTPS_PROXY="${http_proxy:-}"
       fi
       cd $CRAFT_PART_SRC/frontend
+      npm install --global yarn@1
       yarn install --prefer-offline --frozen-lockfile --non-interactive --production=false
       yarn generate
 
