@@ -96,7 +96,7 @@ parts:
       - python3-pip
       - python3-venv
     override-build: |
-      NLTK_ALLOW_PROXIED_URLOPEN=1      
+      export NLTK_ALLOW_PROXIED_URLOPEN=1      
       # Install local dependencies
       pip install --break-system-packages .
       
