@@ -1,3 +1,3 @@
 #!/bin/sh -e
 
-snapctl set port=9925
+snapctl set port=9000

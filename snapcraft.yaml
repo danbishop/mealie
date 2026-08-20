@@ -14,9 +14,9 @@ adopt-info: backend
 summary: Self-hosted recipe manager and meal planner
 description: |
   Mealie is a self-hosted recipe manager and meal planner.
-  This snap runs on port 9925 by default. This can be changed with:
+  This snap runs on port 9000 by default. This can be changed with:
 
-  `sudo snap set mealie port=9925`
+  `sudo snap set mealie port=9000`
 
   You can also configure the base URL with:
 
