@@ -48,7 +48,7 @@ parts:
       git checkout $VERSION
     build-snaps:
       # use Node.js Snap during the build-time only
-      - node/26/stable
+      - node/24/stable
     build-packages:
       - curl
       - gcc
