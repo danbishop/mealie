@@ -39,7 +39,7 @@ apps:
 
 parts:
   frontend:
-    plugin: nil
+    plugin: npm
     source: https://github.com/mealie-recipes/mealie.git
     source-subdir: frontend
     override-pull: |
@@ -47,30 +47,28 @@ parts:
       VERSION=$(git describe --tags --abbrev=0 2>/dev/null)
       git checkout $VERSION
     build-snaps:
-      # Pinned to Node 20 LTS to prevent the Node internal ESM assertion crash in Jiti/Nuxt
-      - node/20/stable
+      # use Node.js Snap during the build-time only
+      - node/24/stable
     build-packages:
       - curl
       - gcc
       - g++
       - make
     override-build: |
+      export VERSION="v3.23.1"
       # Set proxies so that launchpad builds work
       if [ -n "${http_proxy:-}" ]; then
         export YARN_HTTP_PROXY="${http_proxy:-}"
         export YARN_HTTPS_PROXY="${http_proxy:-}"
       fi
+      cd $CRAFT_PART_SRC/frontend
+      npm install --global pnpm@11
+      pnpm clean-install
+      pnpm generate
 
-      # Corepack avoids npm global permission clashes
-      corepack enable
-      corepack prepare yarn@1.22.22 --activate
-
-      yarn install --prefer-offline --frozen-lockfile --non-interactive --production=false
-      yarn generate
-
-      # Copy compiled frontend to the standard part install location
-      mkdir -p "$CRAFT_PART_INSTALL/frontend"
-      cp -a dist/* "$CRAFT_PART_INSTALL/frontend/"
+      # Copy compiled frontend to prime
+      cp -a ${CRAFT_PART_SRC}/frontend/dist/ ${SNAPCRAFT_PRIME}/frontend
+      craftctl default
 
   backend:
     plugin: python
@@ -100,6 +98,7 @@ parts:
       - python3-pip
       - python3-venv
     override-build: |
+      export VERSION="v3.23.1"
       # Allow NLTK to work behind proxy
       export NLTK_ALLOW_PROXIED_URLOPEN=1      
       # Install local dependencies
