@@ -6,7 +6,7 @@ donation: https://github.com/sponsors/danbishop
 source-code: https://github.com/mealie-recipes/mealie
 issues: https://github.com/danbishop/mealie/issues
 contact: d@nbishop.uk
-base: core24
+base: core26
 platforms:
   amd64:
   arm64:
