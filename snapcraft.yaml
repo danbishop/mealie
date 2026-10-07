@@ -96,23 +96,32 @@ parts:
       - libsqlite3-dev
       - libldap2
       - libsasl2-2
+      - python3
+      - python3-venv
+      - python3-pip
+      - python3-dev
     build-packages:
       - libldap2-dev
       - libsasl2-dev
       - libssl-dev
-      - python3
-      - python3-dev
       - gcc
-      - python3-pip
+      - python3
       - python3-venv
+      - python3-pip
+      - python3-dev
     override-build: |
-      export VERSION="v3.23.1"
+      export PYTHONUNBUFFERED=1
+      export PYTHONDONTWRITEBYTECODE=1
+      export PIP_NO_CACHE_DIR=off
+      export UV_FROZEN=1
+
       # Allow NLTK to work behind proxy
       export NLTK_ALLOW_PROXIED_URLOPEN=1      
       # Install local dependencies
-      pip install --break-system-packages .
+      # pip install --break-system-packages .
       
       # Build the part
+      echo "test"
       pip install --break-system-packages uv
       uv build --out-dir $CRAFT_PART_INSTALL/
       uv export --no-editable --no-emit-project --extra pgsql --format requirements-txt --output-file $CRAFT_PART_INSTALL/requirements.txt \
