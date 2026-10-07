@@ -123,13 +123,15 @@ parts:
       # Build the part
       echo "test"
       pip install --break-system-packages uv
-      uv build --out-dir $CRAFT_PART_INSTALL/
-      uv export --no-editable --no-emit-project --extra pgsql --format requirements-txt --output-file $CRAFT_PART_INSTALL/requirements.txt \
+      uv build --out-dir dist/
+      uv export --no-editable --no-emit-project --extra pgsql --format requirements-txt --output-file dist/requirements.txt \
       && MEALIE_VERSION=$(python3 -c "import tomllib; print(tomllib.load(open('pyproject.toml', 'rb'))['project']['version'])") \
-      && echo "mealie[pgsql]==${MEALIE_VERSION} \\" >> $CRAFT_PART_INSTALL/requirements.txt \
-      && pip hash $CRAFT_PART_INSTALL/mealie-${MEALIE_VERSION}-py3-none-any.whl | tail -n1 | tr -d '\n' >> $CRAFT_PART_INSTALL/requirements.txt \
+      && echo "mealie[pgsql]==${MEALIE_VERSION} \\" >> dist/requirements.txt \
+      && pip hash dist/mealie-${MEALIE_VERSION}-py3-none-any.whl | tail -n1 | tr -d '\n' >> dist/requirements.txt \
       && echo " \\" >> requirements.txt \
-      && pip hash $CRAFT_PART_INSTALL/mealie-${MEALIE_VERSION}.tar.gz | tail -n1 >> $CRAFT_PART_INSTALL/requirements.txt
+      && pip hash dist/mealie-${MEALIE_VERSION}.tar.gz | tail -n1 >> dist/requirements.txt
+
+      pip install --break-system-packages dist/mealie-*.whl
       craftctl default
 
       # install nltk data for the ingredient parser
