@@ -38,6 +38,14 @@ apps:
       TESTING: "false"
 
 parts:
+  python-runtime:
+    plugin: nil
+    stage-packages:
+      - libpython3.14-minimal
+      - libpython3.14-stdlib
+      - python3-minimal # for the "python3" symlink
+      - python3.14-minimal
+      - python3.14-venv
   frontend:
     plugin: npm
     source: https://github.com/mealie-recipes/mealie.git
