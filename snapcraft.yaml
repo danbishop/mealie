@@ -123,6 +123,8 @@ parts:
       # Build the part
       echo "test"
       pip install --break-system-packages uv
+      # Add uv path to path...
+      export PATH="$HOME/.local/bin:/usr/local/bin:$PATH"
       uv build --out-dir dist/
       uv export --no-editable --no-emit-project --extra pgsql --format requirements-txt --output-file dist/requirements.txt \
       && MEALIE_VERSION=$(python3 -c "import tomllib; print(tomllib.load(open('pyproject.toml', 'rb'))['project']['version'])") \
