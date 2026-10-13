@@ -123,8 +123,13 @@ parts:
       # Build the part
       echo "test"
       pip install --break-system-packages uv
+      
+      # temp stuff
       # Add uv path to path...
-      export PATH="$HOME/.local/bin:/usr/local/bin:$PATH"
+      #export PATH="$HOME/.local/bin:/usr/local/bin:$PATH"
+      # Find exact path where pip installed the uv executable
+      python3 -c "import sysconfig; print(sysconfig.get_path('scripts'))"
+      
       uv build --out-dir dist/
       uv export --no-editable --no-emit-project --extra pgsql --format requirements-txt --output-file dist/requirements.txt \
       && MEALIE_VERSION=$(python3 -c "import tomllib; print(tomllib.load(open('pyproject.toml', 'rb'))['project']['version'])") \
