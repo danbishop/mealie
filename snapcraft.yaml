@@ -125,7 +125,7 @@ parts:
       echo "test"
       pip install uv --break-system-packages
       
-      uv build --out-dir dist/
+      /build/mealie/parts/backend/install/usr/local/bin/uv build --out-dir dist/
       uv export --no-editable --no-emit-project --extra pgsql --format requirements-txt --output-file dist/requirements.txt \
       && MEALIE_VERSION=$(python3 -c "import tomllib; print(tomllib.load(open('pyproject.toml', 'rb'))['project']['version'])") \
       && echo "mealie[pgsql]==${MEALIE_VERSION} \\" >> dist/requirements.txt \
