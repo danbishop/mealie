@@ -52,7 +52,7 @@ parts:
     source-subdir: frontend
     override-pull: |
       craftctl default
-      VERSION=$(git describe --tags --abbrev=0 2>/dev/null)
+      VERSION=$(git describe --tags --abbrev=0)
       git checkout $VERSION
     build-snaps:
       # use Node.js Snap during the build-time only
@@ -63,7 +63,7 @@ parts:
       - g++
       - make
     override-build: |
-      export VERSION="v3.23.1"
+      export APP_VERSION=3.29.0
       # Set proxies so that launchpad builds work
       if [ -n "${http_proxy:-}" ]; then
         export YARN_HTTP_PROXY="${http_proxy:-}"
@@ -85,7 +85,7 @@ parts:
     source: https://github.com/mealie-recipes/mealie.git
     override-pull: |
       craftctl default
-      VERSION=$(git describe --tags --abbrev=0 2>/dev/null)
+      VERSION=$(git describe --tags --abbrev=0)
       git checkout $VERSION
       craftctl set version="$VERSION"
     python-packages:
@@ -114,6 +114,7 @@ parts:
       export PYTHONDONTWRITEBYTECODE=1
       export PIP_NO_CACHE_DIR=off
       export UV_FROZEN=1
+      export APP_VERSION=3.29.0
 
       # Allow NLTK to work behind proxy
       export NLTK_ALLOW_PROXIED_URLOPEN=1      
@@ -122,13 +123,7 @@ parts:
       
       # Build the part
       echo "test"
-      pip install --break-system-packages uv
-      
-      # temp stuff
-      # Add uv path to path...
-      #export PATH="$HOME/.local/bin:/usr/local/bin:$PATH"
-      # Find exact path where pip installed the uv executable
-      python3 -c "import sysconfig; print(sysconfig.get_path('scripts'))"
+      pip install uv --break-system-packages
       
       uv build --out-dir dist/
       uv export --no-editable --no-emit-project --extra pgsql --format requirements-txt --output-file dist/requirements.txt \
